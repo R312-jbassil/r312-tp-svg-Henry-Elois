@@ -1,0 +1,39 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+---
+
+<Layout>
+  <div
+    class="flex flex-col items-center justify-center min-h-screen bg-base-200 p-6 bg-pink-300 glass"
+  >
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
+ 
+      <div
+        class="card bg-base-100 shadow-xl p-6 flex items-center justify-center min-h-[300px]"
+      >
+        <div id="svg-output" class="flex items-center justify-center">
+        </div>
+      </div>
+
+      <div class="card bg-base-100 shadow-xl p-6">
+        <pre
+          id="svg-code"
+          class="bg-base-300 p-4 rounded-lg overflow-x-auto text-sm">
+        </pre>
+      </div>
+    </div>
+
+    <form class="form-control mt-6 w-full max-w-3xl flex flex-row gap-4">
+      <input
+        type="text"
+        id="prompt"
+        name="prompt"
+        required
+        placeholder="Tapez votre idée..."
+        class="input input-bordered flex-grow"
+      />
+      <button type="submit" class="btn btn-primary bg-purple-400">Generate</button>
+    </form>
+  </div>
+</Layout>
