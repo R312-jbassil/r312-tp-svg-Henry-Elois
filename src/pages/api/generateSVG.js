@@ -9,12 +9,13 @@ export const POST = async ({ request }) => {
   console.log(request);
 
   // Extraction des message du corps de la requête
-  const { messages } = await request.json();
-
+  const messages = await request.json();
+  console.log("Received messages:", messages);
   // Initialisation du client OpenAI avec l'URL de base et le token d'API
+
   const client = new OpenAI({
-    baseURL: import.meta.env.OR_URL, // URL de l'API
-    apiKey: import.meta.env.chatbot_key, // Token d'accès pour l'API
+    baseURL: import.meta.env.HF_URL, // URL de l'API
+    apiKey: import.meta.env.HF_TOKEN, // Token d'accès pour l'API
   });
 
   // Création du message système pour guider le modèle
@@ -25,8 +26,10 @@ export const POST = async ({ request }) => {
   };
 
   // Appel à l'API pour générer le code SVG en utilisant le modèle spécifié
+  console.log([SystemMessage, ...messages]);
+
   const chatCompletion = await client.chat.completions.create({
-    model: "openai/gpt-oss-20b:free", // Nom du modèle à utiliser
+    model: "openai/gpt-oss-20b", // Nom du modèle à utiliser
     messages: [SystemMessage, ...messages], // Messages envoyés au modèle, incluant le message système et l'historique des messages
   });
 
@@ -47,3 +50,4 @@ export const POST = async ({ request }) => {
     headers: { "Content-Type": "application/json" }, // Définit le type de contenu de la réponse
   });
 };
+

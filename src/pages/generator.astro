@@ -30,17 +30,25 @@ import Layout from "../layouts/Layout.astro";
         placeholder="Tapez votre idée..."
         class="input input-bordered flex-grow"
       />
-      <button type="submit" class="btn btn-primary bg-purple-400"
-        >Generate</button
+      <button
+        id="generateButton"
+        type="submit"
+        class="btn btn-primary bg-purple-400"
       >
+        Generate
+      </button>
     </form>
+
+    <button class="btn btn-secondary m-2" id="edit-button">Edit</button>
+
+    <h2 class="text-3xl font-bold">Sauvegardez votre SVG</h2>
     <input
       type="text"
       id="svg-name"
       placeholder="Nom du SVG"
       class="mt-5 input input-bordered"
     />
-    <button class="btn btn-secondary m-2" id="edit-button">Edit</button>
+
     <button
       type="submit"
       id="save-button"
@@ -56,7 +64,8 @@ import Layout from "../layouts/Layout.astro";
   const generateButton = document.getElementById("generateButton");
   const editButton = document.getElementById("edit-button");
   const saveButton = document.getElementById("save-button");
-  const svgContainer = document.getElementById("svg-container");
+  const svgOutput = document.getElementById("svg-output");
+  const svgCode = document.getElementById("svg-code");
   const promptElement = document.getElementById("prompt");
 
   async function generateSVG(prompt) {
@@ -71,35 +80,75 @@ import Layout from "../layouts/Layout.astro";
   }
 
   async function handleSubmit() {
-    let prompt = "";
-    let aiResponse = "";
-    const promptElement = document.getElementById("user-prompt");
-    prompt = promptElement ? promptElement.value : "";
+    let prompt = promptElement ? promptElement.value : "";
     console.log("submitted: ", prompt);
+
     // Réinitialiser la liste des prompts
     promptList.length = 0;
     promptList.push({ role: "user", content: prompt });
-    const svgContainer = document.getElementById("svg-container");
+
     // Afficher un spinner
-    svgContainer.innerHTML = `<span class="loading loading-ring loading-xl"></span>`;
+    svgOutput.innerHTML = `<span class="loading loading-ring loading-xl"></span>`;
     generateButton.disabled = true;
     editButton.disabled = true;
-    let svgOutput = document.getElementById("svg-output");
+
     // Appeler la fonction pour générer le SVG
-    aiResponse = await generateSVG(promptList);
+    let aiResponse = await generateSVG(promptList);
+    console.log("AI Response: ", aiResponse);
+
     // Extraire le SVG de la réponse
     const svgMatch = aiResponse.content.match(/<svg[\s\S]*?<\/svg>/i);
-    aiResponse.content = svgMatch ? svgMatch[0] : "";
-    console.log("svgCode: ", aiResponse.content);
+    const svgContent = svgMatch ? svgMatch[0] : "";
+    console.log("svgCode: ", svgContent);
+
     // Ajouter la réponse de l'IA à la liste des prompts
-    promptList.push(aiResponse);
+    promptList.push({ role: "assistant", content: svgContent });
+
     // Afficher le SVG généré
-    svgOutput.textContent = aiResponse.content;
-    svgContainer.innerHTML = aiResponse.content;
+    svgOutput.innerHTML = svgContent; // rendu visuel
+    svgCode.textContent = svgContent; // code brut
+
     // Réactiver les boutons
     generateButton.disabled = false;
     editButton.disabled = false;
   }
 
   generateButton?.addEventListener("click", handleSubmit);
+
+  async function handleEdit() {
+    let prompt = "";
+    let aiResponse = "";
+
+    prompt = promptElement ? promptElement.value : "";
+    console.log("Prompt soumis : ", prompt);
+    // Ajout du prompt de l'utilisateur à la liste
+    promptList.push({ role: "user", content: prompt });
+    // Afficher un spinner de chargement
+    svgOutput.innerHTML += `<span class="loading loading-ring loading-xl"></span>`;
+    generateButton.disabled = true;
+    editButton.disabled = true;
+
+    // Appeler la fonction pour générer le SVG
+    aiResponse = await generateSVG(promptList);
+    // Extraire le SVG de la réponse
+    const svgMatch = aiResponse.content.match(/<svg[\s\S]*?<\/svg>/i);
+    aiResponse.content = svgMatch ? svgMatch[0] : "";
+    console.log("Code SVG généré : ", aiResponse.content);
+    // Ajouter la réponse de l'IA à la liste des prompts
+    promptList.push(aiResponse);
+    // Afficher le SVG généré
+    svgOutput.textContent = aiResponse.content;
+    svgCode.innerHTML = aiResponse.content;
+    // Réactiver les boutons
+    generateButton.disabled = false;
+    editButton.disabled = false;
+    console.log("Historique des prompts : ", promptList);
+  }
+
+  if (editButton) {
+    editButton.addEventListener("click", handleEdit);
+  }
+
+
+  
 </script>
