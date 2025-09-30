@@ -1,0 +1,170 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import pb from "../../../utils/pb";
+import { Collections } from "../../../utils/pocketbase-types";
+
+const { id } = Astro.params;
+const svg = await pb.collection(Collections.SvgCollection).getOne(id);
+---
+
+<Layout title={`SVG - ${svg.name || id}`}>
+  <div class="container mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <div
+      id="svg-preview"
+      class="border rounded-lg p-6 bg-base-200 flex justify-center"
+    >
+      {
+        svg.code_svg ? (
+          <div set:html={svg.code_svg} />
+        ) : (
+          <span class="text-gray-400">Pas encore de SVG généré</span>
+        )
+      }
+    </div>
+
+    <div
+      id="chat-history"
+      class="flex flex-col gap-4 w-full mb-20 overflow-y-auto flex-grow"
+    >
+      {
+        Array.isArray(svg?.chat_history) && svg.chat_history.length > 0 ? (
+          svg.chat_history.map((msg) => (
+            <div
+              class={`chat ${msg.role === "user" ? "chat-start" : "chat-end"}`}
+            >
+              <div
+                class={`chat-bubble ${msg.role === "user" ? "bg-primary text-primary-content" : "bg-secondary text-secondary-content"}`}
+              >
+                <pre>{msg.content}</pre>
+              </div>
+              <div class="chat-footer opacity-60 text-xs mt-1">{msg.role}</div>
+            </div>
+          ))
+        ) : (
+          <span class="text-error">Aucun historique de chat.</span>
+        )
+      }
+    </div>
+
+    <form
+      id="input-prompt-form"
+      class="flex flex-col gap-2 w-full absolute bottom-0 left-0 right-0 bg-base-300 p-4"
+      method="POST"
+      autocomplete="off"
+    >
+      <input
+        type="hidden"
+        name="history"
+        value={JSON.stringify(svg?.chat_history)}
+      />
+      <input type="hidden" name="id" value={svg?.id} />
+      <div class="flex items-center gap-2">
+        <input
+          id="prompt-input"
+          name="editPrompt"
+          type="text"
+          class="input flex-grow"
+          placeholder="Enter a prompt to edit the SVG..."
+        />
+        <button class="btn btn-primary" type="submit">Edit</button>
+      </div>
+    </form>
+  </div>
+</Layout>
+
+<script>
+  //@ts-nocheck
+  const form = document.getElementById("input-prompt-form");
+  const svgPreview = document.getElementById("svg-preview");
+  const chatHistory = document.getElementById("chat-history");
+  async function generateSVG(prompt) {
+        const response = await fetch("/api/generate-svg", {
+          method: "POST",
+          body: JSON.stringify({ prompt }),
+          headers: { "Content-Type": "application/json" }
+        });
+        const data = await response.json();
+        return data.svg;
+  }
+const data = await response.json();
+const svgCode = data.svg; 
+
+
+  async function update(updatedData) {
+    const response = await fetch("/api/updateSVG", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedData),
+    });
+    return response;
+  }
+
+  // Soumission du formulaire
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(form);
+
+    // Prompt utilisateur
+    let prompt = {
+      role: "user",
+      content: formData.get("editPrompt"),
+    };
+
+    // Historique
+    let history = JSON.parse(formData.get("history")) || [];
+    history.push(prompt);
+
+    // Reset champ texte
+    document.getElementById("prompt-input").value = "";
+    svgPreview.innerHTML += `<span class="loading loading-ring loading-xl"></span>`;
+
+    // Ajout au chat
+    chatHistory.innerHTML += `
+      <div class="chat chat-start">
+        <div class="chat-bubble bg-primary text-primary-content">
+          <pre>${prompt.content}</pre>
+        </div>
+        <div class="chat-footer opacity-60 text-xs mt-1">user</div>
+      </div>
+    `;
+
+    // Réponse IA
+    let aiResponse = await generateSVG(prompt);
+    history.push({ role: "assistant", content: aiResponse });
+
+    // Extraire le SVG
+    const svgMatch = aiResponse.match(/<svg[\s\S]*?<\/svg>/i);
+    aiResponse = svgMatch ? svgMatch[0] : "";
+
+    // Mise à jour preview
+    svgPreview.innerHTML = aiResponse;
+
+    // Ajout au chat
+    chatHistory.innerHTML += `
+      <div class="chat chat-end">
+        <div class="chat-bubble bg-secondary text-secondary-content">
+          <pre>${aiResponse}</pre>
+        </div>
+        <div class="chat-footer opacity-60 text-xs mt-1">assistant</div>
+      </div>
+    `;
+
+    // Update PocketBase
+    const response = await update({
+      id: formData.get("id"),
+      code_svg: aiResponse,
+      chat_history: history,
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      console.log("SVG updated successfully");
+    } else {
+      alert("Failed to update SVG");
+    }
+
+    form.reset();
+  });
+</script>
