@@ -1,11 +1,11 @@
-import pb from "../../utils/pb";
-import { Collections } from "../../utils/pocketbase-types";
+import pb from "../../../utils/pb";
+import { Collections } from "../../../utils/pocketbase-types";
 
 export async function POST({ request }) {
   const data = await request.json();
   console.log("Received data to save:", data);
   try {
-    const record = await pb.collection(Collections.Svg).create(data);
+    const record = await pb.collection(Collections.SvgCollection).create(data);
     console.log("SVG saved with ID:", record.id);
 
     return new Response(JSON.stringify({ success: true, id: record.id }), {
