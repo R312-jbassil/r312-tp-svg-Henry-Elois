@@ -4,18 +4,30 @@ import pb from "../../../utils/pb";
 import { Collections } from "../../../utils/pocketbase-types";
 
 const { id } = Astro.params;
-const svg = await pb.collection(Collections.SvgCollection).getOne(id);
+
+if (!id) {
+  throw new Error("ID is required");
+}
+
+let svg;
+try {
+  svg = await pb.collection(Collections.SvgCollection).getOne(id);
+} catch (err) {
+  svg = null;
+}
 ---
 
-<Layout title={`SVG - ${svg.name || id}`}>
-  <div class="container mx-auto px-4 py-8 flex flex-col gap-6">
-
+<Layout title={`SVG - ${svg?.name || id}`}>
+  <div
+    class="container mx-auto px-4 py-8 flex flex-col gap-6 relative min-h-[80vh]"
+  >
+    <!-- Preview SVG -->
     <div
       id="svg-preview"
-      class="border rounded-lg p-6 bg-base-200 flex justify-center"
+      class="border rounded-lg p-6 bg-base-200 flex justify-center items-center"
     >
       {
-        svg.code_svg ? (
+        svg?.code_svg ? (
           <div set:html={svg.code_svg} />
         ) : (
           <span class="text-gray-400">Pas encore de SVG généré</span>
@@ -23,9 +35,10 @@ const svg = await pb.collection(Collections.SvgCollection).getOne(id);
       }
     </div>
 
+    <!-- Chat history -->
     <div
       id="chat-history"
-      class="flex flex-col gap-4 w-full mb-20 overflow-y-auto flex-grow"
+      class="flex flex-col gap-4 w-full overflow-y-auto flex-1"
     >
       {
         Array.isArray(svg?.chat_history) && svg.chat_history.length > 0 ? (
@@ -47,16 +60,17 @@ const svg = await pb.collection(Collections.SvgCollection).getOne(id);
       }
     </div>
 
+    <!-- Formulaire -->
     <form
       id="input-prompt-form"
-      class="flex flex-col gap-2 w-full absolute bottom-0 left-0 right-0 bg-base-300 p-4"
+      class="flex flex-col gap-2 w-full sticky bottom-0 bg-base-300 p-4"
       method="POST"
       autocomplete="off"
     >
       <input
         type="hidden"
         name="history"
-        value={JSON.stringify(svg?.chat_history)}
+        value={JSON.stringify(svg?.chat_history || [])}
       />
       <input type="hidden" name="id" value={svg?.id} />
       <div class="flex items-center gap-2">
@@ -78,49 +92,52 @@ const svg = await pb.collection(Collections.SvgCollection).getOne(id);
   const form = document.getElementById("input-prompt-form");
   const svgPreview = document.getElementById("svg-preview");
   const chatHistory = document.getElementById("chat-history");
-  async function generateSVG(prompt) {
-        const response = await fetch("/api/generate-svg", {
-          method: "POST",
-          body: JSON.stringify({ prompt }),
-          headers: { "Content-Type": "application/json" }
-        });
-        const data = await response.json();
-        return data.svg;
-  }
-const data = await response.json();
-const svgCode = data.svg; 
 
+  async function generateSVG(prompt) {
+    try {
+      const response = await fetch("/api/generate-svg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      return data.svg;
+    } catch (err) {
+      console.error("Erreur generateSVG:", err);
+      return "<span class='text-error'>Erreur génération SVG</span>";
+    }
+  }
 
   async function update(updatedData) {
-    const response = await fetch("/api/updateSVG", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedData),
-    });
-    return response;
+    try {
+      const response = await fetch("/api/updateSVG", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData),
+      });
+      return await response.json();
+    } catch (err) {
+      console.error("Erreur update:", err);
+      return { success: false };
+    }
   }
 
-  // Soumission du formulaire
   form?.addEventListener("submit", async (e) => {
     e.preventDefault();
-
     const formData = new FormData(form);
+    const promptText = formData.get("editPrompt");
+    if (!promptText) return;
 
-    // Prompt utilisateur
-    let prompt = {
-      role: "user",
-      content: formData.get("editPrompt"),
-    };
-
-    // Historique
-    let history = JSON.parse(formData.get("history")) || [];
+    const prompt = { role: "user", content: promptText };
+    const history = formData.get("history")
+      ? JSON.parse(formData.get("history"))
+      : [];
     history.push(prompt);
 
     // Reset champ texte
     document.getElementById("prompt-input").value = "";
-    svgPreview.innerHTML += `<span class="loading loading-ring loading-xl"></span>`;
 
-    // Ajout au chat
+    // Afficher prompt dans le chat
     chatHistory.innerHTML += `
       <div class="chat chat-start">
         <div class="chat-bubble bg-primary text-primary-content">
@@ -129,19 +146,23 @@ const svgCode = data.svg;
         <div class="chat-footer opacity-60 text-xs mt-1">user</div>
       </div>
     `;
+    chatHistory.scrollTop = chatHistory.scrollHeight;
 
-    // Réponse IA
+    // Afficher loader
+    svgPreview.innerHTML = `<span class="loading loading-ring loading-xl"></span>`;
+
+    // Génération SVG IA
     let aiResponse = await generateSVG(prompt);
     history.push({ role: "assistant", content: aiResponse });
 
-    // Extraire le SVG
+    // Extraire le SVG si présent
     const svgMatch = aiResponse.match(/<svg[\s\S]*?<\/svg>/i);
-    aiResponse = svgMatch ? svgMatch[0] : "";
+    const svgCode = svgMatch ? svgMatch[0] : `<span>${aiResponse}</span>`;
 
     // Mise à jour preview
-    svgPreview.innerHTML = aiResponse;
+    svgPreview.innerHTML = svgCode;
 
-    // Ajout au chat
+    // Ajouter réponse IA dans le chat
     chatHistory.innerHTML += `
       <div class="chat chat-end">
         <div class="chat-bubble bg-secondary text-secondary-content">
@@ -150,21 +171,17 @@ const svgCode = data.svg;
         <div class="chat-footer opacity-60 text-xs mt-1">assistant</div>
       </div>
     `;
+    chatHistory.scrollTop = chatHistory.scrollHeight;
 
     // Update PocketBase
-    const response = await update({
+    const updateResponse = await update({
       id: formData.get("id"),
-      code_svg: aiResponse,
+      code_svg: svgCode,
       chat_history: history,
     });
-    const data = await response.json();
 
-    if (data.success) {
-      console.log("SVG updated successfully");
-    } else {
-      alert("Failed to update SVG");
+    if (!updateResponse.success) {
+      alert("Échec de la mise à jour du SVG");
     }
-
-    form.reset();
   });
 </script>

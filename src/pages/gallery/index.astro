@@ -4,23 +4,27 @@ import Layout from "../../layouts/Layout.astro";
 import pb from "../../../utils/pb";
 import { Collections } from "../../../utils/pocketbase-types";
 import { ui } from "../i18n/ui.js";
+import type { SvgRecord } from "../../../utils/pocketbase-types";
+import type { Lang } from "../../../types";
 
 const locale = (Astro.locals.lang as "en" | "fr") ?? "en";
 console.log("Locale in gallery:", locale);
 
+const user = Astro.locals.user; // Récupère l'utilisateur connecté
 const svgs = await pb.collection(Collections.SvgCollection).getFullList({
-    sort: "-created",
+  sort: "-created", // Trie les SVGs du plus récent au plus ancien
+  filter: `user = "${user.id}"`, // Filtre pour n'afficher que les SVGs de l'utilisateur
 });
 ---
 
 <Layout title="{ui[locale].gallery.title}">
-    <div
-        class="flex flex-col h-full items-center justify-center glass bg-primary"
-    >
-        <h1 class="text-4xl font-bold mb-4 text-primary-content">
-            {ui[locale].gallery.title}
-        </h1>
-    </div>
+  <div
+    class="flex flex-col h-full items-center justify-center glass bg-primary"
+  >
+    <h1 class="text-4xl font-bold mb-4 text-primary-content">
+      {ui[locale].gallery.title}
+    </h1>
+  </div>
 
   {
     svgs.length > 0 ? (
