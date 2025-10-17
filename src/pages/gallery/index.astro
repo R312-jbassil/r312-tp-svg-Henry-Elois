@@ -10,10 +10,10 @@ import type { Lang } from "../../../types";
 const locale = (Astro.locals.lang as "en" | "fr") ?? "en";
 console.log("Locale in gallery:", locale);
 
-const user = Astro.locals.user; // Récupère l'utilisateur connecté
+const user = Astro.locals.user;
 const svgs = await pb.collection(Collections.SvgCollection).getFullList({
-  sort: "-created", // Trie les SVGs du plus récent au plus ancien
-  filter: `user = "${user.id}"`, // Filtre pour n'afficher que les SVGs de l'utilisateur
+  sort: "-created",
+  filter: `user = "${user.id}"`,
 });
 ---
 
@@ -21,6 +21,7 @@ const svgs = await pb.collection(Collections.SvgCollection).getFullList({
   <div
     class="flex flex-col h-full items-center justify-center glass bg-primary"
   >
+  
     <h1 class="text-4xl font-bold mb-4 text-primary-content">
       {ui[locale].gallery.title}
     </h1>
@@ -66,3 +67,5 @@ const svgs = await pb.collection(Collections.SvgCollection).getFullList({
     )
   }
 </Layout>
+
+
